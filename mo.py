@@ -1,6 +1,3 @@
-# ✅ الكود النهائي لتطبيق Streamlit لتحليل وتوقع Churn 
-# مع الحفاظ على الموديل الأصلي وإضافة visualizations و y-range ديناميكي
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -12,7 +9,6 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import io
 
-
 def get_y_range(df_grouped):
     min_val = df_grouped['churn'].min()
     max_val = df_grouped['churn'].max()
@@ -22,13 +18,8 @@ st.set_page_config(page_title="📈 Telecom Churn Dashboard", layout="wide")
 
 st.markdown("""
     <style>
-        body {
-            background-color: #0e1117;
-            color: #f1f1f1;
-        }
-        h1, h2, h3 {
-            color: #00c0f2;
-        }
+        body {background-color: #0e1117; color: #f1f1f1;}
+        h1, h2, h3 {color: #00c0f2;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -40,12 +31,15 @@ with st.sidebar:
 
 st.title("📊 Telecom Churn Analysis & Prediction")
 
-# Load data
 df = pd.read_csv("telecom_churn.csv")
 
-# Data Preview
+df_clean = df.copy()
+for col in df_clean.columns:
+    if df_clean[col].apply(lambda x: isinstance(x, (dict, list))).any():
+        df_clean[col] = df_clean[col].astype(str)
+
 st.header("📂 1. Data Preview")
-st.dataframe(df.head(), use_container_width=True)
+st.dataframe(df_clean.head(), use_container_width=True)
 buffer = io.StringIO()
 df.info(buf=buffer)
 st.text(buffer.getvalue())
@@ -56,8 +50,6 @@ st.dataframe(df.describe())
 st.write("### Categorical Stats")
 st.dataframe(df.describe(include=['object', 'category']))
 
-# Clean invalid rows
-# 🔍 Invalid Values Detection
 invalid_rows = (df['calls_made'] < 0) | (df['sms_sent'] < 0) | (df['data_used'] < 0)
 total_invalid = invalid_rows.sum()
 percentage_invalid = (total_invalid / len(df)) * 100
@@ -66,17 +58,13 @@ st.write("### 🔍 Invalid Values Check")
 st.write(f"Number of rows with negative values (calls, SMS, data): **{total_invalid}**")
 st.write(f"Percentage of invalid rows: **{percentage_invalid:.2f}%**")
 
-# 🧼 Remove invalid rows
 df = df[(df['calls_made'] >= 0) & (df['sms_sent'] >= 0) & (df['data_used'] >= 0)].copy()
-
-# Feature Engineering
 df['date_of_registration'] = pd.to_datetime(df['date_of_registration'])
 df['reg_year'] = df['date_of_registration'].dt.year
 df['reg_month'] = df['date_of_registration'].dt.month
 df['age_group'] = pd.cut(df['age'], bins=[18, 30, 45, 60, 75], labels=['18-30', '31-45', '46-60', '61-75'])
 df['activity_score'] = df['calls_made'] + df['sms_sent'] + df['data_used']
 df['activity_level'] = pd.qcut(df['activity_score'], 4, labels=['Low', 'Medium', 'High', 'Very High'])
-
 
 def usage_type(row):
     if row['calls_made'] > 0 and row['data_used'] == 0:
@@ -88,11 +76,9 @@ def usage_type(row):
     else:
         return 'Inactive'
 
-
 df['usage_type'] = df.apply(usage_type, axis=1)
 df['salary_group'] = pd.qcut(df['estimated_salary'], 4, labels=['Low', 'Mid', 'High', 'Very High'])
 
-# Churn Summary
 st.header("📈 2. Churn Summary")
 churn_rate = df['churn'].mean() * 100
 st.metric("Churn Rate", f"{churn_rate:.2f}%")
@@ -104,7 +90,6 @@ fig2 = go.Figure([go.Bar(x=labels, y=values, marker_color=['green', 'red'])])
 fig2.update_layout(title="📊 Number of Churned vs Non-Churned Customers", xaxis_title="Churn Status", yaxis_title="Number of Customers")
 st.plotly_chart(fig2, use_container_width=True)
 
-# Visual Insights
 st.header("📊 3. Visual Insights")
 
 with st.expander("🧍‍♂️ Demographics"):
@@ -146,33 +131,16 @@ with st.expander("📱 Usage Behavior"):
 with st.expander("🗺️ Geographical Insights"):
     partner_churn = df.groupby('telecom_partner')['churn'].mean().reset_index()
     partner_churn['churn'] *= 100
-    fig = px.bar(
-        partner_churn,
-        x='telecom_partner',
-        y='churn',
-        text_auto='.2f',
-        title="Churn by Telecom Partner",
-        color='telecom_partner',  # ✅ لتلوين الأعمدة حسب اسم الشركة
-        color_discrete_sequence=px.colors.qualitative.Set2  # ✅ مجموعة ألوان لطيفة
-    )
+    fig = px.bar(partner_churn, x='telecom_partner', y='churn', text_auto='.2f', title="Churn by Telecom Partner", color='telecom_partner', color_discrete_sequence=px.colors.qualitative.Set2)
     fig.update_layout(yaxis=dict(range=get_y_range(partner_churn)))
     st.plotly_chart(fig)
 
     state_churn = df.groupby('state')['churn'].mean().reset_index()
     state_churn['churn'] *= 100
     top_states = state_churn.sort_values(by='churn', ascending=False).head(10)
-    fig = px.bar(
-        top_states,
-        x='state',
-        y='churn',
-        text_auto='.2f',
-        title="Top 10 States with Highest Churn",
-        color='state',  # ✅ لتلوين الأعمدة حسب اسم الولاية
-        color_discrete_sequence=px.colors.qualitative.Set3  # ✅ ألوان مختلفة عن الشكل الأول
-    )
+    fig = px.bar(top_states, x='state', y='churn', text_auto='.2f', title="Top 10 States with Highest Churn", color='state', color_discrete_sequence=px.colors.qualitative.Set3)
     fig.update_layout(yaxis=dict(range=get_y_range(top_states)))
     st.plotly_chart(fig)
-
 
     sp_churn = df.groupby(['state', 'telecom_partner'])['churn'].mean().reset_index()
     sp_churn['churn'] *= 100
@@ -194,32 +162,35 @@ with st.expander("📆 Time-Based Trends"):
     fig.update_layout(yaxis=dict(range=get_y_range(month_churn)))
     st.plotly_chart(fig)
 
+# ... (الكود السابق كما في الرد اللي فوق)
 
-
-# Model
+# 🤖 4. Churn Prediction Model
 st.header("🤖 4. Churn Prediction Model")
 features = ['age', 'num_dependents', 'estimated_salary', 'calls_made', 'sms_sent', 'data_used', 'gender', 'telecom_partner']
 df_model = df[features + ['churn']].copy()
+
 le_gender = LabelEncoder()
 le_partner = LabelEncoder()
 df_model['gender'] = le_gender.fit_transform(df_model['gender'])
 df_model['telecom_partner'] = le_partner.fit_transform(df_model['telecom_partner'])
+
 X = df_model.drop('churn', axis=1)
 y = df_model['churn']
 ros = RandomOverSampler()
 X_bal, y_bal = ros.fit_resample(X, y)
 X_train, X_test, y_train, y_test = train_test_split(X_bal, y_bal, test_size=0.2, random_state=2529)
+
 rfc = RandomForestClassifier(random_state=2529)
 rfc.fit(X_train, y_train)
 y_pred = rfc.predict(X_test)
+
 st.metric("Accuracy", f"{accuracy_score(y_test, y_pred)*100:.2f}%")
 st.write("Confusion Matrix:")
 st.write(confusion_matrix(y_test, y_pred))
 st.text("Classification Report:")
 st.text(classification_report(y_test, y_pred))
 
-# Live Prediction
-# Live Prediction based on the input
+# 🔮 5. Live Churn Prediction
 st.header("🔮 5. Live Churn Prediction")
 with st.form("prediction_form"):
     st.subheader("📋 Customer Information")
@@ -235,17 +206,15 @@ with st.form("prediction_form"):
     submitted = st.form_submit_button("Predict")
 
 if submitted:
-    # Data Preprocessing
     gender_encoded = le_gender.transform([gender])[0]
     partner_encoded = le_partner.transform([telecom_partner_display])[0]
     user_input = pd.DataFrame([[age, num_dependents, estimated_salary, calls_made, sms_sent, data_used, gender_encoded, partner_encoded]], columns=features)
-    
-    # Prediction
+
     prediction = rfc.predict(user_input)[0]
     result = "❌ Will Churn" if prediction == 1 else "✅ Will Stay"
     st.success(f"Prediction Result: {result}")
-    
-    # Recommending Plans Based on Age, Usage, and Dependents
+
+    # 🎯 Plan Recommendation Logic
     if age >= 18 and age <= 25:
         if data_used >= 8 :
             st.info("🎁 Recommended Plan: 10 GB+ data with Unlimited calls! Perfect for high usage!")
@@ -270,13 +239,11 @@ if submitted:
     elif age >= 61:
         st.info("📞 Recommended Plan: Calls Only Plan with 2GB data. Best for senior citizens who prefer voice calls.")
 
-    # Check Salary Group and Recommend Premium or Standard Plan
     if estimated_salary > 50000:
         st.info("💼 Premium Plan: Get exclusive high-end plans with additional benefits!")
     else:
         st.info("💵 Standard Plan: Affordable plans with good value for money.")
 
-    # Check Telecom Partner for Specific Offers
     if telecom_partner_display == "Airtel":
         st.info("🎁 Special Offer: Exclusive plans for Airtel users! Get free compensatory plans!")
 
