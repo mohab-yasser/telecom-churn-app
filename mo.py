@@ -164,7 +164,8 @@ with st.expander("📆 Time-Based Trends"):
 
 # ... (الكود السابق كما في الرد اللي فوق)
 
-# 🤖 4. Churn Prediction Model
+
+# Model
 st.header("🤖 4. Churn Prediction Model")
 features = ['age', 'num_dependents', 'estimated_salary', 'calls_made', 'sms_sent', 'data_used', 'gender', 'telecom_partner']
 df_model = df[features + ['churn']].copy()
