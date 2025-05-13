@@ -33,14 +33,14 @@ st.title("📊 Telecom Churn Analysis & Prediction")
 
 # Load and clean
 df = pd.read_csv("telecom_churn.csv")
-df_clean = df.copy()
-for col in df_clean.columns:
-    if df_clean[col].apply(lambda x: isinstance(x, (dict, list))).any():
-        df_clean[col] = df_clean[col].astype(str)
+df= df.copy()
+for col in df.columns:
+    if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
+        df[col] =[col].astype(str)
 
 # Preview
 st.header("📂 1. Data Preview")
-st.dataframe(df_clean.head(), use_container_width=True)
+st.dataframe(df.head(), use_container_width=True)
 buffer = io.StringIO()
 df.info(buf=buffer)
 st.text(buffer.getvalue())
@@ -49,7 +49,7 @@ st.write(df.isnull().sum())
 st.write("### Numerical Stats")
 st.dataframe(df.describe())
 st.write("### Categorical Stats")
-st.dataframe(df_clean.describe(include=['object', 'category']))
+st.dataframe(df.describe(include=['object', 'category']))
 
 # Filter negatives
 invalid_rows = (df['calls_made'] < 0) | (df['sms_sent'] < 0) | (df['data_used'] < 0)
