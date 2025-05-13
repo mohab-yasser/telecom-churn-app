@@ -1,6 +1,3 @@
-# ✅ الكود النهائي لتطبيق Streamlit لتحليل وتوقع Churn 
-# مع الحفاظ على الموديل الأصلي وإضافة visualizations و y-range ديناميكي
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -12,6 +9,12 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import io
 
+# ✅ FIX: convert complex types (dict/list) to str before display
+def clean_complex_columns(df):
+    for col in df.columns:
+        if df[col].apply(lambda x: isinstance(x, (dict, list))).any():
+            df[col] = df[col].astype(str)
+    return df
 
 def get_y_range(df_grouped):
     min_val = df_grouped['churn'].min()
@@ -42,6 +45,7 @@ st.title("📊 Telecom Churn Analysis & Prediction")
 
 # Load data
 df = pd.read_csv("telecom_churn.csv")
+df = clean_complex_columns(df)  # ✅ fix complex-type columns if exist
 
 # Data Preview
 st.header("📂 1. Data Preview")
@@ -57,7 +61,6 @@ st.write("### Categorical Stats")
 st.dataframe(df.describe(include=['object', 'category']))
 
 # Clean invalid rows
-# 🔍 Invalid Values Detection
 invalid_rows = (df['calls_made'] < 0) | (df['sms_sent'] < 0) | (df['data_used'] < 0)
 total_invalid = invalid_rows.sum()
 percentage_invalid = (total_invalid / len(df)) * 100
@@ -66,7 +69,6 @@ st.write("### 🔍 Invalid Values Check")
 st.write(f"Number of rows with negative values (calls, SMS, data): **{total_invalid}**")
 st.write(f"Percentage of invalid rows: **{percentage_invalid:.2f}%**")
 
-# 🧼 Remove invalid rows
 df = df[(df['calls_made'] >= 0) & (df['sms_sent'] >= 0) & (df['data_used'] >= 0)].copy()
 
 # Feature Engineering
@@ -76,7 +78,6 @@ df['reg_month'] = df['date_of_registration'].dt.month
 df['age_group'] = pd.cut(df['age'], bins=[18, 30, 45, 60, 75], labels=['18-30', '31-45', '46-60', '61-75'])
 df['activity_score'] = df['calls_made'] + df['sms_sent'] + df['data_used']
 df['activity_level'] = pd.qcut(df['activity_score'], 4, labels=['Low', 'Medium', 'High', 'Very High'])
-
 
 def usage_type(row):
     if row['calls_made'] > 0 and row['data_used'] == 0:
@@ -88,11 +89,10 @@ def usage_type(row):
     else:
         return 'Inactive'
 
-
 df['usage_type'] = df.apply(usage_type, axis=1)
 df['salary_group'] = pd.qcut(df['estimated_salary'], 4, labels=['Low', 'Mid', 'High', 'Very High'])
 
-# Churn Summary
+# ChurnSummary
 st.header("📈 2. Churn Summary")
 churn_rate = df['churn'].mean() * 100
 st.metric("Churn Rate", f"{churn_rate:.2f}%")
