@@ -31,13 +31,14 @@ with st.sidebar:
 
 st.title("📊 Telecom Churn Analysis & Prediction")
 
+# Load and clean
 df = pd.read_csv("telecom_churn.csv")
-
 df_clean = df.copy()
 for col in df_clean.columns:
     if df_clean[col].apply(lambda x: isinstance(x, (dict, list))).any():
         df_clean[col] = df_clean[col].astype(str)
 
+# Preview
 st.header("📂 1. Data Preview")
 st.dataframe(df_clean.head(), use_container_width=True)
 buffer = io.StringIO()
@@ -48,17 +49,16 @@ st.write(df.isnull().sum())
 st.write("### Numerical Stats")
 st.dataframe(df.describe())
 st.write("### Categorical Stats")
-st.dataframe(df.describe(include=['object', 'category']))
+st.dataframe(df_clean.describe(include=['object', 'category']))
 
+# Filter negatives
 invalid_rows = (df['calls_made'] < 0) | (df['sms_sent'] < 0) | (df['data_used'] < 0)
-total_invalid = invalid_rows.sum()
-percentage_invalid = (total_invalid / len(df)) * 100
-
 st.write("### 🔍 Invalid Values Check")
-st.write(f"Number of rows with negative values (calls, SMS, data): **{total_invalid}**")
-st.write(f"Percentage of invalid rows: **{percentage_invalid:.2f}%**")
+st.write(f"Invalid rows: **{invalid_rows.sum()}**")
+st.write(f"Invalid %: **{(invalid_rows.sum() / len(df)) * 100:.2f}%**")
+df = df[~invalid_rows].copy()
 
-df = df[(df['calls_made'] >= 0) & (df['sms_sent'] >= 0) & (df['data_used'] >= 0)].copy()
+# Feature engineering
 df['date_of_registration'] = pd.to_datetime(df['date_of_registration'])
 df['reg_year'] = df['date_of_registration'].dt.year
 df['reg_month'] = df['date_of_registration'].dt.month
@@ -79,47 +79,31 @@ def usage_type(row):
 df['usage_type'] = df.apply(usage_type, axis=1)
 df['salary_group'] = pd.qcut(df['estimated_salary'], 4, labels=['Low', 'Mid', 'High', 'Very High'])
 
+# Churn Summary
 st.header("📈 2. Churn Summary")
 churn_rate = df['churn'].mean() * 100
 st.metric("Churn Rate", f"{churn_rate:.2f}%")
-labels = ['Not Churned', 'Churned']
-values = df['churn'].value_counts().values
-fig = px.pie(names=labels, values=values, title="📊 Customer Distribution by Churn Status", color_discrete_sequence=px.colors.qualitative.Pastel)
+fig = px.pie(names=['Not Churned', 'Churned'], values=df['churn'].value_counts(), title="Churn Status", color_discrete_sequence=px.colors.qualitative.Pastel)
 st.plotly_chart(fig, use_container_width=True)
-fig2 = go.Figure([go.Bar(x=labels, y=values, marker_color=['green', 'red'])])
-fig2.update_layout(title="📊 Number of Churned vs Non-Churned Customers", xaxis_title="Churn Status", yaxis_title="Number of Customers")
-st.plotly_chart(fig2, use_container_width=True)
 
+# Visual Insights
 st.header("📊 3. Visual Insights")
 
 with st.expander("🧍‍♂️ Demographics"):
     age_churn = df.groupby('age_group')['churn'].mean().reset_index()
     age_churn['churn'] *= 100
-    fig = px.bar(age_churn, x='age_group', y='churn', color='churn', text_auto='.2f', title="Churn by Age Group")
+    fig = px.bar(age_churn, x='age_group', y='churn', text_auto='.2f', title="Churn by Age Group")
     fig.update_layout(yaxis=dict(range=get_y_range(age_churn)))
     st.plotly_chart(fig)
 
     gender_churn = df.groupby('gender')['churn'].mean().reset_index()
     gender_churn['churn'] *= 100
-    st.plotly_chart(px.pie(gender_churn, names='gender', values='churn', title="Churn by Gender", color_discrete_sequence=px.colors.qualitative.Set2))
-
-    dep_churn = df.groupby('num_dependents')['churn'].mean().reset_index()
-    dep_churn['churn'] *= 100
-    fig = px.line(dep_churn, x='num_dependents', y='churn', markers=True, title="Churn by Number of Dependents")
-    fig.update_layout(yaxis=dict(range=get_y_range(dep_churn)))
-    st.plotly_chart(fig)
-
-    salary_churn = df.groupby('salary_group')['churn'].mean().reset_index()
-    salary_churn['churn'] *= 100
-    fig = px.bar(salary_churn, x='salary_group', y='churn', color='churn', text_auto='.2f', title="Churn by Salary Group")
-    fig.update_layout(yaxis=dict(range=get_y_range(salary_churn)))
-    st.plotly_chart(fig)
-
+    st.plotly_chart(px.pie(gender_churn, names='gender', values='churn', title="Churn by Gender"))
 with st.expander("📱 Usage Behavior"):
     activity_churn = df.groupby('activity_level')['churn'].mean().reset_index()
     activity_churn['churn'] *= 100
-    fig = go.Figure([go.Bar(x=activity_churn['activity_level'], y=activity_churn['churn'], text=activity_churn['churn'].round(2), textposition='outside')])
-    fig.update_layout(title="Churn by Activity Level", yaxis=dict(range=get_y_range(activity_churn)))
+    fig = px.bar(activity_churn, x='activity_level', y='churn', text_auto='.2f', title="Churn by Activity Level")
+    fig.update_layout(yaxis=dict(range=get_y_range(activity_churn)))
     st.plotly_chart(fig)
 
     usage_churn = df.groupby('usage_type')['churn'].mean().reset_index()
@@ -131,28 +115,28 @@ with st.expander("📱 Usage Behavior"):
 with st.expander("🗺️ Geographical Insights"):
     partner_churn = df.groupby('telecom_partner')['churn'].mean().reset_index()
     partner_churn['churn'] *= 100
-    fig = px.bar(partner_churn, x='telecom_partner', y='churn', text_auto='.2f', title="Churn by Telecom Partner", color='telecom_partner', color_discrete_sequence=px.colors.qualitative.Set2)
+    fig = px.bar(partner_churn, x='telecom_partner', y='churn', text_auto='.2f', title="Churn by Telecom Partner")
     fig.update_layout(yaxis=dict(range=get_y_range(partner_churn)))
     st.plotly_chart(fig)
 
     state_churn = df.groupby('state')['churn'].mean().reset_index()
     state_churn['churn'] *= 100
     top_states = state_churn.sort_values(by='churn', ascending=False).head(10)
-    fig = px.bar(top_states, x='state', y='churn', text_auto='.2f', title="Top 10 States with Highest Churn", color='state', color_discrete_sequence=px.colors.qualitative.Set3)
+    fig = px.bar(top_states, x='state', y='churn', text_auto='.2f', title="Top 10 States with Highest Churn")
     fig.update_layout(yaxis=dict(range=get_y_range(top_states)))
     st.plotly_chart(fig)
 
     sp_churn = df.groupby(['state', 'telecom_partner'])['churn'].mean().reset_index()
     sp_churn['churn'] *= 100
     filtered = sp_churn[sp_churn['state'].isin(top_states['state'])]
-    fig = px.bar(filtered, x='state', y='churn', color='telecom_partner', barmode='group', text_auto='.2f', title="Churn by Partner in Top 10 States")
+    fig = px.bar(filtered, x='state', y='churn', color='telecom_partner', barmode='group', text_auto='.2f', title="Churn by Partner in Top States")
     fig.update_layout(yaxis=dict(range=get_y_range(filtered)))
     st.plotly_chart(fig)
 
 with st.expander("📆 Time-Based Trends"):
     year_churn = df.groupby('reg_year')['churn'].mean().reset_index()
     year_churn['churn'] *= 100
-    fig = px.bar(year_churn, x='reg_year', y='churn', text_auto='.2f', title="Churn by Registration Year", color='churn')
+    fig = px.bar(year_churn, x='reg_year', y='churn', text_auto='.2f', title="Churn by Registration Year")
     fig.update_layout(yaxis=dict(range=get_y_range(year_churn)))
     st.plotly_chart(fig)
 
@@ -162,10 +146,7 @@ with st.expander("📆 Time-Based Trends"):
     fig.update_layout(yaxis=dict(range=get_y_range(month_churn)))
     st.plotly_chart(fig)
 
-# ... (الكود السابق كما في الرد اللي فوق)
-
-
-# Model
+# ------------------ Model Training ------------------
 st.header("🤖 4. Churn Prediction Model")
 features = ['age', 'num_dependents', 'estimated_salary', 'calls_made', 'sms_sent', 'data_used', 'gender', 'telecom_partner']
 df_model = df[features + ['churn']].copy()
@@ -191,7 +172,7 @@ st.write(confusion_matrix(y_test, y_pred))
 st.text("Classification Report:")
 st.text(classification_report(y_test, y_pred))
 
-# 🔮 5. Live Churn Prediction
+# ------------------ Live Prediction ------------------
 st.header("🔮 5. Live Churn Prediction")
 with st.form("prediction_form"):
     st.subheader("📋 Customer Information")
@@ -215,37 +196,32 @@ if submitted:
     result = "❌ Will Churn" if prediction == 1 else "✅ Will Stay"
     st.success(f"Prediction Result: {result}")
 
-    # 🎯 Plan Recommendation Logic
-    if age >= 18 and age <= 25:
-        if data_used >= 8 :
-            st.info("🎁 Recommended Plan: 10 GB+ data with Unlimited calls! Perfect for high usage!")
+    if age <= 25:
+        if data_used >= 8:
+            st.info("🎁 Plan: 10GB+ data + Unlimited calls")
         else:
-            st.info("📱 Recommended Plan: 6 GB data with 200 calls. Ideal for moderate usage!")
-    elif age > 25 and age <= 45:
-        if num_dependents > 1:
-            if data_used >= 5 and calls_made >= 150:
-                st.info("🎉 Family Plan: 10GB+ data and Unlimited calls for high usage!")
-            else:
-                st.info("🎉 Family Plan: 5GB data with 100 calls. Ideal for family users!")
+            st.info("📱 Plan: 6GB + 200 calls")
+    elif age <= 45:
+        if num_dependents > 1 and data_used >= 5 and calls_made >= 150:
+            st.info("🎉 Family Plan: 10GB+ data + Unlimited calls")
+        elif num_dependents > 1:
+            st.info("🎉 Family Plan: 5GB + 100 calls")
+        elif data_used >= 8 and calls_made >= 150:
+            st.info("📱 Plan: 8GB+ + Unlimited calls")
         else:
-            if data_used >= 8 and calls_made >= 150:
-                st.info("📱 Recommended Plan: 8GB+ data and Unlimited calls!")
-            else:
-                st.info("📱 Recommended Plan: 5GB data with 100 calls. Perfect for moderate users!")
-    elif age >= 45 and age <= 60:
+            st.info("📱 Plan: 5GB + 100 calls")
+    elif age <= 60:
         if calls_made >= 150:
-            st.info("📞 Recommended Plan: Unlimited calls with 5GB data. Tailored for frequent callers!")
+            st.info("📞 Plan: Unlimited calls + 5GB data")
         else:
-            st.info("📱 Recommended Plan: 3GB data with 100 calls. Suitable for moderate users!")
-    elif age >= 61:
-        st.info("📞 Recommended Plan: Calls Only Plan with 2GB data. Best for senior citizens who prefer voice calls.")
+            st.info("📱 Plan: 3GB + 100 calls")
+    else:
+        st.info("📞 Plan: Calls only + 2GB for seniors")
 
     if estimated_salary > 50000:
-        st.info("💼 Premium Plan: Get exclusive high-end plans with additional benefits!")
+        st.info("💼 Premium Plan available for your profile")
     else:
-        st.info("💵 Standard Plan: Affordable plans with good value for money.")
+        st.info("💵 Standard Plan: best balance of price and value")
 
     if telecom_partner_display == "Airtel":
-        st.info("🎁 Special Offer: Exclusive plans for Airtel users! Get free compensatory plans!")
-
-#streamlit run mo.py
+        st.info("🎁 Airtel Bonus: Free monthly upgrade available!")
