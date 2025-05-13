@@ -218,5 +218,66 @@ st.write(confusion_matrix(y_test, y_pred))
 st.text("Classification Report:")
 st.text(classification_report(y_test, y_pred))
 
+# Live Prediction
+# Live Prediction based on the input
+st.header("🔮 5. Live Churn Prediction")
+with st.form("prediction_form"):
+    st.subheader("📋 Customer Information")
+    age = st.slider("Age", 18, 100, 30)
+    num_dependents = st.selectbox("Number of Dependents", [0, 1, 2, 3, 4])
+    estimated_salary = st.number_input("Estimated Salary", min_value=0, max_value=500000, value=60000)
+    calls_made = st.slider("Calls Made per Month", 0, 200, 50)
+    sms_sent = st.slider("SMS Sent per Month", 0, 200, 20)
+    data_used = st.slider("Data Used (GB)", 0.0, 100.0, 5.0)
+    gender_display = st.selectbox("Gender", ["Male", "Female"])
+    gender = "M" if gender_display == "Male" else "F"
+    telecom_partner_display = st.selectbox("Telecom Partner", df['telecom_partner'].unique())
+    submitted = st.form_submit_button("Predict")
+
+if submitted:
+    # Data Preprocessing
+    gender_encoded = le_gender.transform([gender])[0]
+    partner_encoded = le_partner.transform([telecom_partner_display])[0]
+    user_input = pd.DataFrame([[age, num_dependents, estimated_salary, calls_made, sms_sent, data_used, gender_encoded, partner_encoded]], columns=features)
+    
+    # Prediction
+    prediction = rfc.predict(user_input)[0]
+    result = "❌ Will Churn" if prediction == 1 else "✅ Will Stay"
+    st.success(f"Prediction Result: {result}")
+    
+    # Recommending Plans Based on Age, Usage, and Dependents
+    if age >= 18 and age <= 25:
+        if data_used >= 8 :
+            st.info("🎁 Recommended Plan: 10 GB+ data with Unlimited calls! Perfect for high usage!")
+        else:
+            st.info("📱 Recommended Plan: 6 GB data with 200 calls. Ideal for moderate usage!")
+    elif age > 25 and age <= 45:
+        if num_dependents > 1:
+            if data_used >= 5 and calls_made >= 150:
+                st.info("🎉 Family Plan: 10GB+ data and Unlimited calls for high usage!")
+            else:
+                st.info("🎉 Family Plan: 5GB data with 100 calls. Ideal for family users!")
+        else:
+            if data_used >= 8 and calls_made >= 150:
+                st.info("📱 Recommended Plan: 8GB+ data and Unlimited calls!")
+            else:
+                st.info("📱 Recommended Plan: 5GB data with 100 calls. Perfect for moderate users!")
+    elif age >= 45 and age <= 60:
+        if calls_made >= 150:
+            st.info("📞 Recommended Plan: Unlimited calls with 5GB data. Tailored for frequent callers!")
+        else:
+            st.info("📱 Recommended Plan: 3GB data with 100 calls. Suitable for moderate users!")
+    elif age >= 61:
+        st.info("📞 Recommended Plan: Calls Only Plan with 2GB data. Best for senior citizens who prefer voice calls.")
+
+    # Check Salary Group and Recommend Premium or Standard Plan
+    if estimated_salary > 50000:
+        st.info("💼 Premium Plan: Get exclusive high-end plans with additional benefits!")
+    else:
+        st.info("💵 Standard Plan: Affordable plans with good value for money.")
+
+    # Check Telecom Partner for Specific Offers
+    if telecom_partner_display == "Airtel":
+        st.info("🎁 Special Offer: Exclusive plans for Airtel users! Get free compensatory plans!")
 
 #streamlit run mo.py
